@@ -77,7 +77,7 @@ class SeedTranslationsCommand extends Command
             $this->warn('Truncating translations table...');
             Schema::disableForeignKeyConstraints();
             Translation::truncate();
-            DB::table('translation_tag')->truncate();
+            DB::table('tag_translation')->truncate();
             Schema::enableForeignKeyConstraints();
         }
 
@@ -96,7 +96,7 @@ class SeedTranslationsCommand extends Command
         $progressBar = $this->output->createProgressBar($count);
         $progressBar->start();
 
-        $batches = ceil($count / $batchSize);
+        $batches = (int) ceil($count / $batchSize);
         $now = now();
 
         for ($batch = 0; $batch < $batches; $batch++) {
@@ -160,8 +160,9 @@ class SeedTranslationsCommand extends Command
      */
     private function attachTagsToSampleTranslations(array $tagIds): void
     {
-        // Attach tags to a sample of translations (10% or max 1000)
-        $sampleSize = min(1000, (int) ceil(Translation::count() * 0.1));
+        $total = Translation::count();
+        // Attach tags to a sample (10% or max 1000), or all if small dataset
+        $sampleSize = $total < 100 ? $total : min(1000, (int) ceil($total * 0.1));
         $translations = Translation::inRandomOrder()->limit($sampleSize)->pluck('id');
 
         $pivotRecords = [];
@@ -179,7 +180,7 @@ class SeedTranslationsCommand extends Command
         }
 
         // Batch insert pivot records
-        DB::table('translation_tag')->insertOrIgnore($pivotRecords);
+        DB::table('tag_translation')->insertOrIgnore($pivotRecords);
     }
 
     /**

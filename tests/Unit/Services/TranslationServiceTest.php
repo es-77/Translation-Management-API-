@@ -34,6 +34,20 @@ class TranslationServiceTest extends TestCase
         parent::tearDown();
     }
 
+    public function test_all_delegates_to_repository(): void
+    {
+        $collection = new \Illuminate\Database\Eloquent\Collection();
+
+        $this->repository
+            ->shouldReceive('all')
+            ->once()
+            ->andReturn($collection);
+
+        $result = $this->service->all();
+
+        $this->assertSame($collection, $result);
+    }
+
     public function test_find_delegates_to_repository(): void
     {
         $translation = new Translation([
@@ -112,6 +126,35 @@ class TranslationServiceTest extends TestCase
             ->andReturn($translation);
 
         $result = $this->service->update(1, $data);
+
+        $this->assertEquals('Updated', $result->value);
+    }
+
+    public function test_update_with_tags(): void
+    {
+        $data = ['value' => 'Updated'];
+        $tagIds = [1, 2];
+        $translation = Mockery::mock(Translation::class)->makePartial();
+        $translation->id = 1;
+        $translation->fill($data);
+
+        $this->repository
+            ->shouldReceive('update')
+            ->once()
+            ->with(1, $data)
+            ->andReturn($translation);
+
+        $this->repository
+            ->shouldReceive('syncTags')
+            ->once()
+            ->with(1, $tagIds);
+
+        $translation->shouldReceive('load')
+            ->once()
+            ->with('tags')
+            ->andReturnSelf();
+
+        $result = $this->service->update(1, $data, $tagIds);
 
         $this->assertEquals('Updated', $result->value);
     }
