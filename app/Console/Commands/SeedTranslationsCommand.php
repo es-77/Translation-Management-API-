@@ -8,6 +8,7 @@ use App\Models\Tag;
 use App\Models\Translation;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Artisan command to seed translations for performance testing.
@@ -22,7 +23,8 @@ class SeedTranslationsCommand extends Command
     protected $signature = 'translations:seed 
                             {--count=100000 : Number of translations to create}
                             {--batch=1000 : Batch size for inserts}
-                            {--with-tags : Attach random tags to translations}';
+                            {--with-tags : Attach random tags to translations}
+                            {--truncate : Truncate the table before seeding}';
 
     /**
      * The console command description.
@@ -69,6 +71,15 @@ class SeedTranslationsCommand extends Command
         $count = (int) $this->option('count');
         $batchSize = (int) $this->option('batch');
         $withTags = $this->option('with-tags');
+        $truncate = $this->option('truncate');
+
+        if ($truncate) {
+            $this->warn('Truncating translations table...');
+            Schema::disableForeignKeyConstraints();
+            Translation::truncate();
+            DB::table('translation_tag')->truncate();
+            Schema::enableForeignKeyConstraints();
+        }
 
         $this->info("Seeding {$count} translations...");
 
@@ -107,7 +118,7 @@ class SeedTranslationsCommand extends Command
             }
 
             // Batch insert for performance
-            Translation::insert($records);
+            Translation::upsert($records, ['key', 'locale'], ['value', 'updated_at']);
 
             // Attach tags if requested (simplified - attaches to last batch only for performance)
             if ($withTags && $batch === $batches - 1) {
@@ -168,7 +179,7 @@ class SeedTranslationsCommand extends Command
         }
 
         // Batch insert pivot records
-        DB::table('translation_tag')->insert($pivotRecords);
+        DB::table('translation_tag')->insertOrIgnore($pivotRecords);
     }
 
     /**
